@@ -1,5 +1,15 @@
 # latent-model-recreation
 
+## Running instructions
+
+```bash
+cp .env.example .env # fill in the env variables
+uv sync
+uv run train.py
+```
+
+# Task Assignments
+
 ## dataset
 
 umur12

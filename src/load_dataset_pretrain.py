@@ -1,19 +1,27 @@
-from datasets import load_dataset
 import os
 
-def load_textbooks_dataset(split="train", save_to_file=False, output_path="pretrain_texts.txt"):
+from datasets import load_dataset
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-    #Args:
+def load_textbooks_dataset(
+    split="train", save_to_file=False, output_path="pretrain_texts.txt"
+):
+
+    # Args:
     #    split (str): Dataset split to load (e.g., "train").
     #    save_to_file (bool): If True, saves texts to a .txt file.
     #    output_path (str): Path to save the output text file.
 
-    #Returns:
-    #    dataset (datasets.Dataset): Hugging Face Dataset object. 
-    
+    # Returns:
+    #    dataset (datasets.Dataset): Hugging Face Dataset object.
+
     print(f"Loading '{split}' split")
-    dataset = load_dataset("nampdn-ai/tiny-strange-textbooks", split=split, token="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")
+    dataset = load_dataset(
+        "nampdn-ai/tiny-strange-textbooks", split=split, token=os.getenv("HF_TOKEN")
+    )
     print(f"Loaded {len(dataset)} examples.")
 
     if save_to_file:
@@ -23,6 +31,7 @@ def load_textbooks_dataset(split="train", save_to_file=False, output_path="pretr
                 f.write(example["text"].strip() + "\n")
 
     return dataset
+
 
 if __name__ == "__main__":
     SAVE_TO_FILE = True
