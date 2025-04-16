@@ -26,3 +26,4 @@ TestResults.xml
 pretrain_texts.txt
 .venv
 **/**__pycache__/
+checkpoints/

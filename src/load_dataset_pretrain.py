@@ -10,26 +10,14 @@ def load_textbooks_dataset(
     split="train", save_to_file=False, output_path="pretrain_texts.txt"
 ):
 
-    # Args:
-    #    split (str): Dataset split to load (e.g., "train").
-    #    save_to_file (bool): If True, saves texts to a .txt file.
-    #    output_path (str): Path to save the output text file.
-
-    # Returns:
-    #    dataset (datasets.Dataset): Hugging Face Dataset object.
-
     print(f"Loading '{split}' split")
     dataset = load_dataset(
-        "nampdn-ai/tiny-strange-textbooks", split=split, token=os.getenv("HF_TOKEN")
+        "nampdn-ai/tiny-strange-textbooks",
+        split="train[:1000]",
+        cache_dir="/mnt/disks/disk-1/cache",
+        token=os.getenv("HF_TOKEN"),
     )
     print(f"Loaded {len(dataset)} examples.")
-
-    if save_to_file:
-        print(f"Saving texts to file")
-        with open(output_path, "w", encoding="utf-8") as f:
-            for example in dataset:
-                f.write(example["text"].strip() + "\n")
-
     return dataset
 
 

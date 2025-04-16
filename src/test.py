@@ -4,6 +4,7 @@ from train import ModularTextModel, TextDataset, collate_fn
 from load_dataset_pretrain import load_textbooks_dataset
 from torch.utils.data import DataLoader
 
+
 def test(checkpoint=None, batch_size=8):
     # Load dataset and tokenizer
     dataset = load_textbooks_dataset(save_to_file=False)
@@ -15,7 +16,7 @@ def test(checkpoint=None, batch_size=8):
 
     # Model
     model = ModularTextModel(
-        input_dim=64, hidden_dim=128, vocab_size=vocab_size, recurrence=3
+        input_dim=vocab_size, hidden_dim=128, vocab_size=vocab_size, recurrence=3
     )
     if checkpoint is not None:
         checkpoint_data = torch.load(checkpoint, map_location="cpu")
@@ -30,7 +31,7 @@ def test(checkpoint=None, batch_size=8):
             emb = torch.nn.functional.one_hot(x, num_classes=vocab_size).float()
             outs = model(emb)  # [recurrence, batch, seq, vocab]
             print(f"Model output logits shape: {outs.shape}")
-            print(f"Sample logits: {outs[0,0,0,:5]}")  # Print first 5 logits of first token
+            print(
+                f"Sample logits: {outs[0,0,0,:5]}"
+            )  # Print first 5 logits of first token
             break  # Only run one batch for basic test
-
-

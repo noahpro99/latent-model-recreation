@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 
 import torch
@@ -76,7 +77,16 @@ def collate_fn(batch):
     return batch[:, :-1], batch[:, 1:]
 
 
-def train(checkpoint=None, epochs=3, batch_size=32, checkpoint_path="checkpoint.pt"):
+def train(
+    checkpoint=None,
+    epochs=3,
+    batch_size=32,
+    checkpoint_path=f"checkpoints/checkpoint-{datetime.now().strftime('%Y%m%d-%H%M%S')}.pt",
+):
+    os.makedirs("./checkpoints", exist_ok=True)
+    # Device selection
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     # Load dataset
     dataset = load_textbooks_dataset(save_to_file=False)
     texts = [ex["text"] for ex in dataset]
@@ -87,15 +97,15 @@ def train(checkpoint=None, epochs=3, batch_size=32, checkpoint_path="checkpoint.
 
     # Model
     model = ModularTextModel(
-        input_dim=64, hidden_dim=128, vocab_size=vocab_size, recurrence=3
-    )
+        input_dim=vocab_size, hidden_dim=128, vocab_size=vocab_size, recurrence=3
+    ).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
     start_epoch = 0
 
     # Optionally load checkpoint if provided
     if checkpoint is not None and os.path.isfile(checkpoint):
-        checkpoint_data = torch.load(checkpoint, map_location="cpu")
+        checkpoint_data = torch.load(checkpoint, map_location=device)
         model.load_state_dict(checkpoint_data["model_state"])
         optimizer.load_state_dict(checkpoint_data["optimizer_state"])
         start_epoch = checkpoint_data.get("epoch", 0)
@@ -105,15 +115,15 @@ def train(checkpoint=None, epochs=3, batch_size=32, checkpoint_path="checkpoint.
 
     for epoch in range(start_epoch, epochs):
         for x, y in loader:
-            x = x.to(torch.long)
-            y = y.to(torch.long)
+            x = x.to(torch.long).to(device)
+            y = y.to(torch.long).to(device)
             # Embed tokens
-            emb = nn.functional.one_hot(x, num_classes=vocab_size).float()
+            emb = nn.functional.one_hot(x, num_classes=vocab_size).float().to(device)
             outs = model(emb)  # [recurrence, batch, seq, vocab]
             loss = 0
             for out in outs:
                 # out: [batch, seq, vocab]
-                loss += criterion(out.view(-1, vocab_size), y.view(-1))
+                loss += criterion(out.reshape(-1, vocab_size), y.reshape(-1))
             loss = loss / outs.shape[0]  # Average over recurrence
             optimizer.zero_grad()
             loss.backward()
