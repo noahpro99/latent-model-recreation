@@ -1,4 +1,5 @@
 from datetime import datetime
+import itertools
 import os
 
 import torch
@@ -8,6 +9,7 @@ import torch.optim as optim
 from data import get_dataloader
 from model import ModularTextModel
 from transformers.models.auto.tokenization_auto import AutoTokenizer
+from tqdm import trange, tqdm
 
 
 def train(
@@ -37,8 +39,9 @@ def train(
         start_epoch = checkpoint_data.get("epoch", 0)
         print(f"Loaded checkpoint from {checkpoint}, starting at epoch {start_epoch+1}")
     model.train()
-    for epoch in range(start_epoch, epochs):
-        for x, y in loader:
+    max_batches = 10000
+    for epoch in trange(start_epoch, epochs, desc="Epochs"):
+        for x, y in itertools.islice(loader, max_batches):
             x = x.to(torch.long).to(device)
             y = y.to(torch.long).to(device)
             emb = nn.functional.one_hot(x, num_classes=vocab_size).float().to(device)

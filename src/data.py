@@ -58,7 +58,7 @@ def collate_fn(batch):
 
 def get_dataloader(batch_size=32, seq_len=64, device="cpu", streaming=True):
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    dataset = load_textbooks_dataset(streaming=streaming)
+    dataset = load_textbooks_dataset(split="train[:1000]", streaming=streaming)
     if streaming:
         ds = StreamingTextDataset(dataset, tokenizer, seq_len=seq_len)
     else:

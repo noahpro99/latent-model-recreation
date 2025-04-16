@@ -6,6 +6,8 @@
 cp .env.example .env # fill in the env variables
 uv sync
 uv run src/main.py -h
+# to run training even when ssh is closed
+nohup uv run src/main.py train -e 50 > output.log &
 ```
 
 # Task Assignments

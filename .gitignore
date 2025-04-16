@@ -27,3 +27,4 @@ pretrain_texts.txt
 .venv
 **/**__pycache__/
 checkpoints/
+output.log
