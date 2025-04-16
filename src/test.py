@@ -1,37 +1,41 @@
 import torch
-from transformers import AutoTokenizer
-from train import ModularTextModel, TextDataset, collate_fn
-from data import load_textbooks_dataset
-from torch.utils.data import DataLoader
+from transformers.models.auto.tokenization_auto import AutoTokenizer
+from train import ModularTextModel
 
 
-def test(checkpoint=None, batch_size=8):
-    # Load dataset and tokenizer
-    dataset = load_textbooks_dataset(save_to_file=False)
-    texts = [ex["text"] for ex in dataset]
+def manual_test(checkpoint=None):
+    # Set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    input_text = input("Enter text to test the model: ")
+
+    # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     vocab_size = tokenizer.vocab_size
-    ds = TextDataset(texts, tokenizer)
-    loader = DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+
+    # Tokenize input
+    tokens = tokenizer.encode(input_text, add_special_tokens=True)
+    x = torch.tensor(tokens).unsqueeze(0).to(device)  # [1, seq_len]
 
     # Model
     model = ModularTextModel(
         input_dim=vocab_size, hidden_dim=128, vocab_size=vocab_size, recurrence=3
-    )
+    ).to(device)
     if checkpoint is not None:
-        checkpoint_data = torch.load(checkpoint, map_location="cpu")
+        checkpoint_data = torch.load(checkpoint, map_location=device)
         model.load_state_dict(checkpoint_data["model_state"])
         print(f"Loaded checkpoint from {checkpoint}")
 
     model.eval()
     with torch.no_grad():
-        for x, y in loader:
-            x = x.to(torch.long)
-            # Embed tokens
-            emb = torch.nn.functional.one_hot(x, num_classes=vocab_size).float()
-            outs = model(emb)  # [recurrence, batch, seq, vocab]
-            print(f"Model output logits shape: {outs.shape}")
-            print(
-                f"Sample logits: {outs[0,0,0,:5]}"
-            )  # Print first 5 logits of first token
-            break  # Only run one batch for basic test
+        # Embed tokens
+        emb = torch.nn.functional.one_hot(x, num_classes=vocab_size).float()
+        outs = model(emb)  # [recurrence, batch, seq, vocab]
+        # Take the last recurrence output
+        logits = outs[-1, 0]  # [seq, vocab]
+        predicted_ids = torch.argmax(logits, dim=-1).cpu().numpy().tolist()
+        # Decode predicted tokens to text
+        output_text = tokenizer.decode(predicted_ids, skip_special_tokens=True)
+        print("Input text: ", input_text)
+        print("Output text:", output_text)

@@ -5,7 +5,7 @@
 ```bash
 cp .env.example .env # fill in the env variables
 uv sync
-uv run train.py
+uv run src/main.py -h
 ```
 
 # Task Assignments
