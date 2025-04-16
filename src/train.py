@@ -9,7 +9,6 @@ from transformers import AutoTokenizer
 from load_dataset_pretrain import load_textbooks_dataset
 
 
-# --- Modular Blocks ---
 class InputBlock(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super().__init__()
@@ -43,7 +42,6 @@ class FinalTokenBlock(nn.Module):
         return self.linear(x)
 
 
-# --- Main Model ---
 class ModularTextModel(nn.Module):
     def __init__(self, input_dim, hidden_dim, vocab_size, recurrence):
         super().__init__()
@@ -58,7 +56,6 @@ class ModularTextModel(nn.Module):
         return final_outs
 
 
-# --- Dataset Wrapper ---
 class TextDataset(Dataset):
     def __init__(self, texts, tokenizer, seq_len=64):
         self.examples = []
@@ -79,25 +76,34 @@ def collate_fn(batch):
     return batch[:, :-1], batch[:, 1:]
 
 
-# --- Training Loop ---
-def train():
+def train(checkpoint=None, epochs=3, batch_size=32, checkpoint_path="checkpoint.pt"):
     # Load dataset
     dataset = load_textbooks_dataset(save_to_file=False)
     texts = [ex["text"] for ex in dataset]
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     vocab_size = tokenizer.vocab_size
     ds = TextDataset(texts, tokenizer)
-    loader = DataLoader(ds, batch_size=32, shuffle=True, collate_fn=collate_fn)
+    loader = DataLoader(ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
     # Model
     model = ModularTextModel(
         input_dim=64, hidden_dim=128, vocab_size=vocab_size, recurrence=3
     )
-    model.train()
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
+    start_epoch = 0
 
-    for epoch in range(3):
+    # Optionally load checkpoint if provided
+    if checkpoint is not None and os.path.isfile(checkpoint):
+        checkpoint_data = torch.load(checkpoint, map_location="cpu")
+        model.load_state_dict(checkpoint_data["model_state"])
+        optimizer.load_state_dict(checkpoint_data["optimizer_state"])
+        start_epoch = checkpoint_data.get("epoch", 0)
+        print(f"Loaded checkpoint from {checkpoint}, starting at epoch {start_epoch+1}")
+
+    model.train()
+
+    for epoch in range(start_epoch, epochs):
         for x, y in loader:
             x = x.to(torch.long)
             y = y.to(torch.long)
@@ -113,6 +119,17 @@ def train():
             loss.backward()
             optimizer.step()
         print(f"Epoch {epoch+1} done. Loss: {loss.item():.4f}")
+
+        # Save checkpoint after each epoch
+        torch.save(
+            {
+                "model_state": model.state_dict(),
+                "optimizer_state": optimizer.state_dict(),
+                "epoch": epoch + 1,
+            },
+            checkpoint_path,
+        )
+        print(f"Checkpoint saved to {checkpoint_path}")
 
 
 if __name__ == "__main__":
