@@ -24,3 +24,4 @@ TestResults.xml
 *.env
 !.env.example
 pretrain_texts.txt
+.venv
