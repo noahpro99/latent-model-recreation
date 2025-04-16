@@ -4,7 +4,7 @@
 
 ```bash
 cp .env.example .env # fill in the env variables
-uv sync
+uv sync --extra cu118 # or uv sync --extra cpu
 uv run src/main.py -h
 # to run training even when ssh is closed
 nohup uv run src/main.py train -e 50 > output.log &

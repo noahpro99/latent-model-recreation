@@ -1,8 +1,9 @@
 import os
+
+import torch
 from datasets import load_dataset
 from dotenv import load_dotenv
-import torch
-from torch.utils.data import Dataset, DataLoader, IterableDataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 
 load_dotenv()
@@ -13,7 +14,7 @@ def load_textbooks_dataset(split="train", streaming=False):
     dataset = load_dataset(
         "nampdn-ai/tiny-strange-textbooks",
         split=split if not streaming else None,
-        cache_dir="/mnt/disks/disk-1/cache",
+        cache_dir=os.path.join(os.getenv("CACHE_DIR")),
         token=os.getenv("HF_TOKEN"),
         streaming=streaming,
     )
