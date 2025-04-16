@@ -8,6 +8,7 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
+        config.allowBroken = true;
       };
     in
     {
@@ -16,7 +17,7 @@
           stdenv.cc.cc
           gcc
           uv
-          (python310.withPackages (ps: with ps; [ numpy ]))
+          (python310.withPackages (ps: with ps; [ numpy torchWithRocm ]))
         ];
         shellHook = ''
           export UV_PYTHON_PREFERENCE="only-system";
