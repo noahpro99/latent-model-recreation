@@ -7,6 +7,7 @@ import torch.optim as optim
 
 from data import get_dataloader
 from model import ModularTextModel
+from transformers.models.auto.tokenization_auto import AutoTokenizer
 
 
 def train(
