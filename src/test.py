@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoTokenizer
 from train import ModularTextModel, TextDataset, collate_fn
-from load_dataset_pretrain import load_textbooks_dataset
+from data import load_textbooks_dataset
 from torch.utils.data import DataLoader
 
 

@@ -7,7 +7,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 
-from load_dataset_pretrain import load_textbooks_dataset
+from data import load_textbooks_dataset
 
 
 class InputBlock(nn.Module):
