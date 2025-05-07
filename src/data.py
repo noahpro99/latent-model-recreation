@@ -27,11 +27,17 @@ class TextDataset(Dataset):
         self.examples = []
         self.pad_token_id = tokenizer.pad_token_id
         for t in texts:
-            ids = tokenizer.encode(t, truncation=True, max_length=seq_len)
-            if len(ids) > 1:
+            ids = tokenizer.encode(t, truncation=True, max_length=None)
+            n = len(ids)
+            if n < 1:
+                continue
+            # Sliding window: create all possible chunks of length seq_len
+            for i in range(n):
+                chunk = ids[max(0, i - seq_len + 1):i + 1]
                 # Left-pad to seq_len
-                padded = [self.pad_token_id] * (seq_len - len(ids)) + ids
-                self.examples.append(torch.tensor(padded))
+                if len(chunk) < seq_len:
+                    chunk = [self.pad_token_id] * (seq_len - len(chunk)) + chunk
+                self.examples.append(torch.tensor(chunk))
 
     def __len__(self):
         return len(self.examples)
@@ -52,8 +58,13 @@ class StreamingTextDataset(IterableDataset):
             ids = self.tokenizer.encode(
                 ex["text"], truncation=True, max_length=None
             )
-            for i in range(len(ids) - self.seq_len + 1):
-                chunk = ids[i : i + self.seq_len]
+            n = len(ids)
+            if n < 1:
+                continue
+            # Sliding window: create all possible chunks of length seq_len
+            for i in range(n):
+                chunk = ids[max(0, i - self.seq_len + 1):i + 1]
+                # Left-pad to seq_len
                 if len(chunk) < self.seq_len:
                     chunk = [self.pad_token_id] * (self.seq_len - len(chunk)) + chunk
                 yield torch.tensor(chunk)
