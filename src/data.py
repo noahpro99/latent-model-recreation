@@ -10,7 +10,7 @@ load_dotenv()
 
 
 def load_textbooks_dataset(split="train", streaming=False):
-    print(f"Loading '{split}' split")
+    print(f"Loading '{split}'" if not streaming else "Loading streaming")
     dataset = load_dataset(
         "nampdn-ai/tiny-strange-textbooks",
         split=split if not streaming else None,
@@ -25,10 +25,13 @@ def load_textbooks_dataset(split="train", streaming=False):
 class TextDataset(Dataset):
     def __init__(self, texts, tokenizer, seq_len=64):
         self.examples = []
+        self.pad_token_id = tokenizer.pad_token_id
         for t in texts:
             ids = tokenizer.encode(t, truncation=True, max_length=seq_len)
             if len(ids) > 1:
-                self.examples.append(torch.tensor(ids))
+                # Left-pad to seq_len
+                padded = [self.pad_token_id] * (seq_len - len(ids)) + ids
+                self.examples.append(torch.tensor(padded))
 
     def __len__(self):
         return len(self.examples)
@@ -42,19 +45,27 @@ class StreamingTextDataset(IterableDataset):
         self.dataset = dataset
         self.tokenizer = tokenizer
         self.seq_len = seq_len
+        self.pad_token_id = tokenizer.pad_token_id
 
     def __iter__(self):
         for ex in self.dataset["train"]:
             ids = self.tokenizer.encode(
-                ex["text"], truncation=True, max_length=self.seq_len
+                ex["text"], truncation=True, max_length=None
             )
-            if len(ids) > 1:
-                yield torch.tensor(ids)
+            for i in range(len(ids) - self.seq_len + 1):
+                chunk = ids[i : i + self.seq_len]
+                if len(chunk) < self.seq_len:
+                    chunk = [self.pad_token_id] * (self.seq_len - len(chunk)) + chunk
+                yield torch.tensor(chunk)
 
 
 def collate_fn(batch):
-    batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0)
-    return batch[:, :-1], batch[:, 1:]
+    # batch: [batch, seq_len]
+    batch = torch.stack(batch, dim=0)
+    # Input: all but last token, Target: all but first token
+    x = batch[:, :-1]
+    y = batch[:, -1]
+    return x, y
 
 
 def get_dataloader(batch_size=32, seq_len=64, device="cpu", streaming=True):
@@ -72,3 +83,24 @@ def get_dataloader(batch_size=32, seq_len=64, device="cpu", streaming=True):
         pin_memory=(device == "cuda"),
     )
     return dataloader, tokenizer
+
+if __name__ == "__main__":
+    # Test non-streaming mode
+    print("Testing non-streaming mode:")
+    dataloader, tokenizer = get_dataloader(batch_size=2, seq_len=16, streaming=False)
+    batch = next(iter(dataloader))
+    x, y = batch
+    print("Encoded input (x):", x)
+    print("Decoded input (x):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in x])
+    print("Encoded target (y):", y)
+    print("Decoded target (y):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in y])
+
+    # Test streaming mode
+    print("\nTesting streaming mode:")
+    dataloader, tokenizer = get_dataloader(batch_size=2, seq_len=16, streaming=True)
+    batch = next(iter(dataloader))
+    x, y = batch
+    print("Encoded input (x):", x)
+    print("Decoded input (x):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in x])
+    print("Encoded target (y):", y)
+    print("Decoded target (y):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in y])
