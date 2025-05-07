@@ -12,16 +12,34 @@ class InputBlock(nn.Module):
         return self.act(self.linear(x))
 
 
-class RecurrentDecodeBlock(nn.Module):
-    def __init__(self, hidden_dim, recurrence=3):
+class RecurrentStackBlock(nn.Module):
+    def __init__(self, hidden_dim, num_layers=4, num_heads=24, ff_mult=4, dropout=0.1, num_recurrences=24):
         super().__init__()
-        self.recurrence = recurrence
-        self.block = nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.GELU())
+        self.num_recurrences = num_recurrences
+        self.layers = nn.ModuleList([
+            nn.ModuleList([
+                nn.LayerNorm(hidden_dim),
+                nn.MultiheadAttention(hidden_dim, num_heads, dropout=dropout, batch_first=True),
+                nn.LayerNorm(hidden_dim),
+                nn.Sequential(
+                    nn.Linear(hidden_dim, ff_mult * hidden_dim),
+                    nn.GELU(),
+                    nn.Linear(ff_mult * hidden_dim, hidden_dim),
+                    nn.Dropout(dropout),
+                )
+            ]) for _ in range(num_layers)
+        ])
 
     def forward(self, x):
-        for _ in range(self.recurrence):
-            x = self.block(x)
-        return x  # Only return the final output
+        for _ in range(self.num_recurrences):
+            for norm1, attn, norm2, ff in self.layers:
+                x_norm = norm1(x)
+                attn_out, _ = attn(x_norm, x_norm, x_norm, need_weights=False)
+                x = x + attn_out
+                x_norm = norm2(x)
+                ff_out = ff(x_norm)
+                x = x + ff_out
+        return x
 
 
 class FinalTokenBlock(nn.Module):
@@ -34,16 +52,16 @@ class FinalTokenBlock(nn.Module):
 
 
 class ModularTextModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, vocab_size, recurrence):
+    def __init__(self, hidden_dim=360, vocab_size=None, num_layers=4, num_heads=24, ff_mult=4, dropout=0.1, num_recurrences=24):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, hidden_dim)
         self.decode = InputBlock(hidden_dim)
-        self.recurrent = RecurrentDecodeBlock(hidden_dim, recurrence)
+        self.recurrent = RecurrentStackBlock(hidden_dim, num_layers=num_layers, num_heads=num_heads, ff_mult=ff_mult, dropout=dropout, num_recurrences=num_recurrences)
         self.final = FinalTokenBlock(hidden_dim, vocab_size)
 
     def forward(self, x):
-        x = self.embedding(x)  # [batch, seq, hidden_dim]
+        x = self.embedding(x)
         x = self.decode(x)
-        x = self.recurrent(x)  # [batch, seq, hidden_dim]
-        x = self.final(x)      # [batch, seq, vocab]
-        return x[:, -1, :]  # Only return the last token's output for each sequence [batch, vocab]
+        x = self.recurrent(x)
+        x = self.final(x)
+        return x[:, -1, :]

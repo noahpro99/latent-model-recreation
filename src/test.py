@@ -30,7 +30,7 @@ def manual_test(checkpoint=None, seq_len=64):
 
     # Model
     model = ModularTextModel(
-        input_dim=vocab_size, hidden_dim=128, vocab_size=vocab_size, recurrence=3
+        vocab_size=vocab_size
     ).to(device)
     print("[DEBUG] Model instantiated")
     if checkpoint is not None:

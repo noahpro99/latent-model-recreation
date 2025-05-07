@@ -26,7 +26,7 @@ def train(
     )
     vocab_size = tokenizer.vocab_size
     model = ModularTextModel(
-        input_dim=vocab_size, hidden_dim=128, vocab_size=vocab_size, recurrence=3
+        vocab_size=vocab_size
     ).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
