@@ -33,7 +33,7 @@ class TextDataset(Dataset):
                 continue
             # Sliding window: create all possible chunks of length seq_len
             for i in range(n):
-                chunk = ids[max(0, i - seq_len + 1):i + 1]
+                chunk = ids[max(0, i - seq_len + 1) : i + 1]
                 # Left-pad to seq_len
                 if len(chunk) < seq_len:
                     chunk = [self.pad_token_id] * (seq_len - len(chunk)) + chunk
@@ -55,15 +55,13 @@ class StreamingTextDataset(IterableDataset):
 
     def __iter__(self):
         for ex in self.dataset["train"]:
-            ids = self.tokenizer.encode(
-                ex["text"], truncation=True, max_length=None
-            )
+            ids = self.tokenizer.encode(ex["text"], truncation=True, max_length=None)
             n = len(ids)
             if n < 1:
                 continue
             # Sliding window: create all possible chunks of length seq_len
             for i in range(n):
-                chunk = ids[max(0, i - self.seq_len + 1):i + 1]
+                chunk = ids[max(0, i - self.seq_len + 1) : i + 1]
                 # Left-pad to seq_len
                 if len(chunk) < self.seq_len:
                     chunk = [self.pad_token_id] * (self.seq_len - len(chunk)) + chunk
@@ -96,11 +94,14 @@ def get_dataloader(batch_size=32, seq_len=64, device="cpu", streaming=True):
     )
     return dataloader, tokenizer
 
+
 if __name__ == "__main__":
     dataloader, tokenizer = get_dataloader(batch_size=2, seq_len=16, streaming=True)
     data_iter = iter(dataloader)
 
-    print("Streaming mode interactive demo. Press Enter to get the next batch (Ctrl+C to exit).")
+    print(
+        "Streaming mode interactive demo. Press Enter to get the next batch (Ctrl+C to exit)."
+    )
     while True:
         input()
         try:
@@ -110,6 +111,12 @@ if __name__ == "__main__":
             data_iter = iter(dataloader)
             x, y = next(data_iter)
         print("Encoded input (x):", x)
-        print("Decoded input (x):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in x])
+        print(
+            "Decoded input (x):",
+            [tokenizer.decode(seq, skip_special_tokens=True) for seq in x],
+        )
         print("Encoded target (y):", y)
-        print("Decoded target (y):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in y])
+        print(
+            "Decoded target (y):",
+            [tokenizer.decode(seq, skip_special_tokens=True) for seq in y],
+        )

@@ -25,9 +25,7 @@ def train(
         batch_size=batch_size, device=str(device), streaming=True
     )
     vocab_size = tokenizer.vocab_size
-    model = ModularTextModel(
-        vocab_size=vocab_size
-    ).to(device)
+    model = ModularTextModel(vocab_size=vocab_size).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
     start_epoch = 0
@@ -50,7 +48,10 @@ def train(
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            print(f"Epoch {epoch+1}, Batch {batch_i+1}/{max_batches}, Loss: {loss.item():.4f}", end="\r")
+            print(
+                f"Epoch {epoch+1}, Batch {batch_i+1}/{max_batches}, Loss: {loss.item():.4f}",
+                end="\r",
+            )
         print(f"Epoch {epoch+1} done. Loss: {loss.item():.4f}")
         torch.save(
             {

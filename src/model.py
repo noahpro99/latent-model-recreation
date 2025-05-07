@@ -12,22 +12,37 @@ class InputBlock(nn.Module):
 
 
 class RecurrentStackBlock(nn.Module):
-    def __init__(self, hidden_dim, num_layers=4, num_heads=24, ff_mult=4, dropout=0.1, num_recurrences=24):
+    def __init__(
+        self,
+        hidden_dim,
+        num_layers=4,
+        num_heads=24,
+        ff_mult=4,
+        dropout=0.1,
+        num_recurrences=24,
+    ):
         super().__init__()
         self.num_recurrences = num_recurrences
-        self.layers = nn.ModuleList([
-            nn.ModuleList([
-                nn.LayerNorm(hidden_dim),
-                nn.MultiheadAttention(hidden_dim, num_heads, dropout=dropout, batch_first=True),
-                nn.LayerNorm(hidden_dim),
-                nn.Sequential(
-                    nn.Linear(hidden_dim, ff_mult * hidden_dim),
-                    nn.GELU(),
-                    nn.Linear(ff_mult * hidden_dim, hidden_dim),
-                    nn.Dropout(dropout),
+        self.layers = nn.ModuleList(
+            [
+                nn.ModuleList(
+                    [
+                        nn.LayerNorm(hidden_dim),
+                        nn.MultiheadAttention(
+                            hidden_dim, num_heads, dropout=dropout, batch_first=True
+                        ),
+                        nn.LayerNorm(hidden_dim),
+                        nn.Sequential(
+                            nn.Linear(hidden_dim, ff_mult * hidden_dim),
+                            nn.GELU(),
+                            nn.Linear(ff_mult * hidden_dim, hidden_dim),
+                            nn.Dropout(dropout),
+                        ),
+                    ]
                 )
-            ]) for _ in range(num_layers)
-        ])
+                for _ in range(num_layers)
+            ]
+        )
 
     def forward(self, x):
         for _ in range(self.num_recurrences):
@@ -51,11 +66,27 @@ class FinalTokenBlock(nn.Module):
 
 
 class ModularTextModel(nn.Module):
-    def __init__(self, hidden_dim=360, vocab_size=None, num_layers=4, num_heads=12, ff_mult=4, dropout=0.1, num_recurrences=6):
+    def __init__(
+        self,
+        hidden_dim=360,
+        vocab_size=None,
+        num_layers=4,
+        num_heads=12,
+        ff_mult=4,
+        dropout=0.1,
+        num_recurrences=6,
+    ):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, hidden_dim)
         self.decode = InputBlock(hidden_dim)
-        self.recurrent = RecurrentStackBlock(hidden_dim, num_layers=num_layers, num_heads=num_heads, ff_mult=ff_mult, dropout=dropout, num_recurrences=num_recurrences)
+        self.recurrent = RecurrentStackBlock(
+            hidden_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            ff_mult=ff_mult,
+            dropout=dropout,
+            num_recurrences=num_recurrences,
+        )
         self.final = FinalTokenBlock(hidden_dim, vocab_size)
 
     def forward(self, x):

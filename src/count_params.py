@@ -11,9 +11,7 @@ if __name__ == "__main__":
     device = torch.device("cpu")
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     vocab_size = tokenizer.vocab_size
-    model = ModularTextModel(
-        vocab_size=vocab_size
-    )
+    model = ModularTextModel(vocab_size=vocab_size)
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["model_state"])
     total_params = sum(p.numel() for p in model.parameters())

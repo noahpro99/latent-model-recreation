@@ -4,7 +4,6 @@ from model import ModularTextModel
 
 
 def manual_test(checkpoint=None, seq_len=64):
-    print("[DEBUG] Starting manual_test")
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[DEBUG] Using device: {device}")
@@ -29,9 +28,7 @@ def manual_test(checkpoint=None, seq_len=64):
     print(f"[DEBUG] Input tensor shape: {x.shape}")
 
     # Model
-    model = ModularTextModel(
-        vocab_size=vocab_size
-    ).to(device)
+    model = ModularTextModel(vocab_size=vocab_size).to(device)
     print("[DEBUG] Model instantiated")
     if checkpoint is not None:
         print(f"[DEBUG] Loading checkpoint: {checkpoint}")
@@ -47,10 +44,18 @@ def manual_test(checkpoint=None, seq_len=64):
         print(f"[DEBUG] Generating up to {max_gen_len - orig_seq_len} new tokens")
         for _ in range(orig_seq_len, max_gen_len):
             if generated.shape[1] < seq_len:
-                input_seq = torch.cat([
-                    generated,
-                    torch.full((1, seq_len - generated.shape[1]), tokenizer.pad_token_id, device=device, dtype=generated.dtype)
-                ], dim=1)
+                input_seq = torch.cat(
+                    [
+                        generated,
+                        torch.full(
+                            (1, seq_len - generated.shape[1]),
+                            tokenizer.pad_token_id,
+                            device=device,
+                            dtype=generated.dtype,
+                        ),
+                    ],
+                    dim=1,
+                )
             else:
                 input_seq = generated[:, -seq_len:]
             logits = model(input_seq)  # [batch, vocab]
@@ -58,9 +63,10 @@ def manual_test(checkpoint=None, seq_len=64):
 
             probs = torch.softmax(next_token_logits, dim=-1)
             next_token_id = torch.multinomial(probs, num_samples=1)
-            print(f"[DEBUG] Next token id: {next_token_id.item()}")
-            if next_token_id.item() == tokenizer.sep_token_id or next_token_id.item() == tokenizer.eos_token_id:
-                print("[DEBUG] Stopping generation: reached SEP or EOS token.")
+            if (
+                next_token_id.item() == tokenizer.sep_token_id
+                or next_token_id.item() == tokenizer.eos_token_id
+            ):
                 break
             generated = torch.cat([generated, next_token_id.unsqueeze(0)], dim=1)
 
