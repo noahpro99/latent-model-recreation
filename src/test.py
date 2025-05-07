@@ -1,6 +1,6 @@
 import torch
 from transformers.models.auto.tokenization_auto import AutoTokenizer
-from train import ModularTextModel
+from model import ModularTextModel
 
 
 def manual_test(checkpoint=None, seq_len=64):
@@ -53,8 +53,8 @@ def manual_test(checkpoint=None, seq_len=64):
                 ], dim=1)
             else:
                 input_seq = generated[:, -seq_len:]
-            logits = model(input_seq)  # [batch, seq, vocab]
-            next_token_logits = logits[0, -1]  # last token in sequence
+            logits = model(input_seq)  # [batch, vocab]
+            next_token_logits = logits[0]  # [vocab]
 
             # Mask pad token so it cannot be chosen
             next_token_logits[tokenizer.pad_token_id] = float('-inf')

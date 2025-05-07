@@ -46,4 +46,4 @@ class ModularTextModel(nn.Module):
         x = self.decode(x)
         x = self.recurrent(x)  # [batch, seq, hidden_dim]
         x = self.final(x)      # [batch, seq, vocab]
-        return x
+        return x[:, -1, :]  # Only return the last token's output for each sequence [batch, vocab]

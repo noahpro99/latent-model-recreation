@@ -39,16 +39,14 @@ def train(
         start_epoch = checkpoint_data.get("epoch", 0)
         print(f"Loaded checkpoint from {checkpoint}, starting at epoch {start_epoch+1}")
     model.train()
-    max_batches = 1000
+    max_batches = 10000
     for epoch in trange(start_epoch, epochs, desc="Epochs", disable=True):
         print(f"Epoch {epoch+1}/{epochs}")
         for batch_i, (x, y) in enumerate(itertools.islice(loader, max_batches)):
             x = x.to(torch.long).to(device)
             y = y.to(torch.long).to(device)
-            outs = model(x)  # x is token indices
-            # Use the full output for loss calculation
-            out = outs  # [batch, seq, vocab]
-            loss = criterion(out.reshape(-1, vocab_size), y.reshape(-1))
+            out = model(x)  # x is token indices
+            loss = criterion(out, y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
