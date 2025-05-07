@@ -39,9 +39,9 @@ def train(
         start_epoch = checkpoint_data.get("epoch", 0)
         print(f"Loaded checkpoint from {checkpoint}, starting at epoch {start_epoch+1}")
     model.train()
-    max_batches = 10000
-    for epoch in trange(start_epoch, epochs, desc="Epochs", disable=True):
-        print(f"Epoch {epoch+1}/{epochs}")
+    max_batches = 1000
+    for epoch in trange(start_epoch, start_epoch + epochs, desc="Epochs", disable=True):
+        print(f"Epoch {epoch+1}/{start_epoch + epochs}")
         for batch_i, (x, y) in enumerate(itertools.islice(loader, max_batches)):
             x = x.to(torch.long).to(device)
             y = y.to(torch.long).to(device)

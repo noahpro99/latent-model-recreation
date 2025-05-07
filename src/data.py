@@ -92,26 +92,24 @@ def get_dataloader(batch_size=32, seq_len=64, device="cpu", streaming=True):
         batch_size=batch_size,
         collate_fn=collate_fn,
         pin_memory=(device == "cuda"),
+        shuffle=not streaming,
     )
     return dataloader, tokenizer
 
 if __name__ == "__main__":
-    # Test non-streaming mode
-    print("Testing non-streaming mode:")
-    dataloader, tokenizer = get_dataloader(batch_size=2, seq_len=16, streaming=False)
-    batch = next(iter(dataloader))
-    x, y = batch
-    print("Encoded input (x):", x)
-    print("Decoded input (x):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in x])
-    print("Encoded target (y):", y)
-    print("Decoded target (y):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in y])
-
-    # Test streaming mode
-    print("\nTesting streaming mode:")
     dataloader, tokenizer = get_dataloader(batch_size=2, seq_len=16, streaming=True)
-    batch = next(iter(dataloader))
-    x, y = batch
-    print("Encoded input (x):", x)
-    print("Decoded input (x):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in x])
-    print("Encoded target (y):", y)
-    print("Decoded target (y):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in y])
+    data_iter = iter(dataloader)
+
+    print("Streaming mode interactive demo. Press Enter to get the next batch (Ctrl+C to exit).")
+    while True:
+        input()
+        try:
+            x, y = next(data_iter)
+        except StopIteration:
+            print("End of dataset. Restarting iterator.")
+            data_iter = iter(dataloader)
+            x, y = next(data_iter)
+        print("Encoded input (x):", x)
+        print("Decoded input (x):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in x])
+        print("Encoded target (y):", y)
+        print("Decoded target (y):", [tokenizer.decode(seq, skip_special_tokens=True) for seq in y])

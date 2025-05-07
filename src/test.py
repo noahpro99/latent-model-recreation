@@ -43,7 +43,7 @@ def manual_test(checkpoint=None, seq_len=64):
     with torch.no_grad():
         generated = x.clone()
         orig_seq_len = x.shape[1]
-        max_gen_len = 200
+        max_gen_len = seq_len * 2
         print(f"[DEBUG] Generating up to {max_gen_len - orig_seq_len} new tokens")
         for _ in range(orig_seq_len, max_gen_len):
             if generated.shape[1] < seq_len:
@@ -55,9 +55,6 @@ def manual_test(checkpoint=None, seq_len=64):
                 input_seq = generated[:, -seq_len:]
             logits = model(input_seq)  # [batch, vocab]
             next_token_logits = logits[0]  # [vocab]
-
-            # Mask pad token so it cannot be chosen
-            next_token_logits[tokenizer.pad_token_id] = float('-inf')
 
             probs = torch.softmax(next_token_logits, dim=-1)
             next_token_id = torch.multinomial(probs, num_samples=1)

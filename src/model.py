@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 
@@ -52,7 +51,7 @@ class FinalTokenBlock(nn.Module):
 
 
 class ModularTextModel(nn.Module):
-    def __init__(self, hidden_dim=360, vocab_size=None, num_layers=4, num_heads=24, ff_mult=4, dropout=0.1, num_recurrences=24):
+    def __init__(self, hidden_dim=360, vocab_size=None, num_layers=4, num_heads=12, ff_mult=4, dropout=0.1, num_recurrences=6):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, hidden_dim)
         self.decode = InputBlock(hidden_dim)
