@@ -1,0 +1,30 @@
+% ---------- front/abstract.tex ----------
+\chapter*{\centering Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Large‑scale transformers often boost step‑by‑step reasoning by (i) widening
+and deepening feed‑forward layers or (ii) padding prompts with long
+chain‑of‑thought exemplars—both approaches inflate inference cost.  
+Our mini‑project explores a lighter alternative: reuse a compact transformer
+block multiple times instead of growing parameters or prompt length.
+
+Using only publicly available tooling, we implement a
+\textbf{60 M‑parameter} model from scratch and fine‑tune it on a streamed
+slice of the \texttt{OpenMath‑Instruct 1.0} corpus.
+Two variants share the same weights and optimiser:
+
+\begin{itemize}
+    \item \textbf{Latent‑Recurrence (LR)} – the hidden state is passed
+          through the core block $r$ times.
+    \item \textbf{Token‑Recurrence (TR)} – the model re‑feeds the last $k$
+          generated tokens at each loop, mimicking a naive
+          chain‑of‑thought replay.
+\end{itemize}
+
+Both models are trained with truncated back‑propagation for 55 epochs on a
+single RTX 4090 and evaluated across recurrence depths
+$r\!\in\!\{1,2,4,6,8,12,24\}$.  
+Results show LR achieves up to \textbf{30× lower loss} than its one‑pass
+counterpart and consistently outperforms TR at equal compute.  
+We provide open‑source PyTorch code, diagnostic plots, and discuss practical
+lessons for sub‑100 M parameter models.

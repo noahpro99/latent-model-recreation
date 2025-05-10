@@ -1,0 +1,25 @@
+% ---------- main.tex ----------
+\documentclass[letterpaper,11pt]{report}
+\usepackage{reportSty}
+
+\begin{document}
+\pagenumbering{roman}
+
+\input{front/cover.tex}
+\input{front/abstract.tex}
+
+\tableofcontents
+\newpage
+\onehalfspacing
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{chapters/introduction.tex}
+%\input{chapters/lit_review.tex}
+\input{chapters/methodology.tex}
+\input{chapters/results.tex}
+\input{chapters/discussion.tex}
+
+\printbibliography[heading=bibintoc]
+
+\end{document}
