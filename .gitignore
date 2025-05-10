@@ -28,3 +28,4 @@ pretrain_texts.txt
 **/**__pycache__/
 checkpoints/
 output.log
+**/*.pdf
