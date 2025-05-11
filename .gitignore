@@ -29,3 +29,4 @@ pretrain_texts.txt
 checkpoints/
 output.log
 **/*.pdf
+.idea/

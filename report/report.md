@@ -1,5 +1,6 @@
 ---
-title: Re-implementing Latent-Space Recurrence for Efficient Reasoning
+
+title: Re‑implementing Latent‑Space Recurrence for Efficient Reasoning
 bibliography: bib.bib
 header-includes: |
   \usepackage{float}
@@ -9,37 +10,36 @@ header-includes: |
 geometry: margin=1in
 block-headings: true
 author:
-  - Shantnu Bhalla shantnub@vt.edu
-  - Kingsley Ho bgho21@vt.edu
-  - Umur Kose umurkose@vt.edu
-  - Linh Pham phamlt21@vt.edu
-  - Noah Provenzano noahpro@vt.edu
+  - Shantnu Bhalla  <shantnub@vt.edu>
+  - Kingsley Ho  <bgho21@vt.edu>
+  - Umur Kose  <umurkose@vt.edu>
+  - Linh Pham  <phamlt21@vt.edu>
+  - Noah Provenzano  <noahpro@vt.edu>
 date: \today
 abstract: |
-  Large-scale transformers often boost step-by-step reasoning by (i) widening and deepening feed-forward layers or (ii) padding prompts with long chain-of-thought exemplars—both approaches inflate inference cost. Our mini-project explores a lighter alternative: reuse a compact transformer block multiple times instead of growing parameters or prompt length.
+  Large scale transformers often boost step‑by‑step reasoning by (i) widening and deepening feed‑forward layers or (ii) padding prompts with long chain‑of‑thought 
+  exemplars both strategies inflate inference cost.
+  Our project explores a lighter alternative: **latent recurrence**, where a compact transformer block is
+  reused several times instead of growing parameters or prompt length.
 
-  Using only publicly available tooling, we implement a 28M parameter recurrent language model from scratch. We then test its performance at different depths of recurrence to compare latent and token-level recurrence.
+  Using only publicly available tooling, we implement a **117M param**
+  recurrent language model. The hidden state is passed through the core block $r$ times, and the same checkpoint is evaluated at depths
+  $r \in \{1, 2, 4, 6, 8, 12, 24\}$.  
+  Training runs for a handful of epochs; loss drops by roughly 30× between one pass and the
+  optimal $r=6$, after which further looping degrades performance revealing a clear efficiency sweet spot for this model size.
 
-  * Latent-Recurrence (LR): the hidden state is passed through the core block r times.
-  * Token-Recurrence (TR): the model re-feeds the last k generated tokens at each loop,
-      mimicking a naive chain-of-thought replay.
+  **Code**: <https://github.com/noahpro99/latent-model-recreation>
 
-  The model is trained with back-propagation for 55 epochs on a single RTX 4090 and evaluated across recurrence depths $r \in {1, 2, 4, 6, 8, 12, 24}$. Results show LR achieves up to 30× lower loss than its one-pass counterpart and consistently outperforms TR at equal compute. We provide open-source PyTorch code, diagnostic plots, and discuss practical lessons for sub-100 M parameter models.
-
-  **Code**: [https://github.com/noahpro99/latent-model-recreation](https://github.com/noahpro99/latent-model-recreation)
-
-project: Mini-Group Project
+project: Mini‑Group Project
 advisor: Prof. Soheil Sibdari
 institution: Virginia Tech
 location: Alexandria, Virginia
+
 ---
 
 \pagebreak
-
 \tableofcontents
-
 \listoffigures
-
 \pagebreak
 
 # Introduction
@@ -48,66 +48,66 @@ location: Alexandria, Virginia
 
 Two mainstream routes for improving reasoning in language models are
 
-1. Scaling the network by adding more layers or wider matrices.
-2. Embedding chain-of-thought (CoT) prompts so the model spells out each intermediate step.
+1. Scaling the network by adding more layers or wider matrices.  
+2. Embedding chain-of-thought prompts so the model spells out each intermediate step.
 
-Both approaches increase runtime demands: parameters grow quadratically with width, and CoT inflates the prompt length linearly with reasoning depth.
+Both approaches increase runtime demands: parameters grow quadratically
+with width, and CoT inflates the prompt length linearly with reasoning
+depth.
 
-A lighter alternative is to keep parameters and prompt length fixed while giving the model more time looping over its own hidden state. This idea was explored in _[Scaling up Test-Time Compute with Latent Reasoning](https://arxiv.org/abs/2502.05171)_ [@geiping2025scalingtesttimecomputelatent], where the authors showed that latent reasoning can be more effective than token-level recurrence (i.e. CoT) in large models. This project explores that idea and tries to replicate their findings in a resource-constrained setting (single consumer GPU, <100 M parameters).
+A lighter alternative is to keep parameters and prompt length fixed while
+giving the model more time looping over its own hidden state. This idea
+was explored in *Scaling up Test-Time Compute with Latent Reasoning*,
+showing strong gains at billion parameter scale. We replicate the concept
+in a resource‑constrained setting (~100M params) and
+ask:
 
-We asked the following questions:
-
-- Can hidden state recurrence improve a compact model?
-- How does latent recurrence compare with a token-level loop under identical training recipes?
-
-We replicate both variants from scratch and analyze loss curves and qualitative behaviour.
+* Can hidden state recurrence improve a compact model?  
+* Where is the sweet spot depth for compute‑to‑quality trade‑off?
 
 # Methodology
 
 ## Architecture Overview
 
-![Data-flow diagram of ModularTextModel](model_architecture.png){ width=50% }
+![Data‑flow diagram of RecurrentTransformerModel](model_architecture.png){ width=50% }
 
-ModularTextModel (see `model.py`) is built from three stacked modules:
+`RecurrentTransformerModel` (see `model.py`) stacks:
 
-1. Embedding & Input projection: token indices → hidden size h = 360 via nn. Embedding followed by Linear+GELU.
-2. Transformer Core: 4 layers, 12-head attention, feed-forward multiplier 4; this block can be repeated.
-3. Output layer: Linear map to vocabulary logits; only the last token's logits are returned.
+1. **Embedding & positional encoding**: token IDs plus learned position embeddings $\to$ hidden size $h=768$.  
+2. **Input transformer block**: single self‑attention + FF pass.  
+3. **Recurrent core**: list of 8 transformer blocks, the *entire list* is repeated $r$ times.  
+4. **Output transformer block**: one final refinement pass.  
+5. **LayerNorm + Linear head**: maps to vocabulary logits for *all* sequence positions.
 
-Parameter count is ~28M, verified with `random_utils.py` count params.
+Total size ~117M parameters (`random_utils.py count_params`).
 
-## Recurrence in Practice
+## Recurrence Sweep
 
-The core loop is controlled by the argument `num_recurrences`. During evaluation we sweep $r \in {1, 2, 4, 6, 8, 12, 24}$ to study depth-loss trade-offs. No token-level replay or early-exit logic is implemented in the current codebase.
+Depth is controlled by `num_recurrences`. After training with `num_recurrences = 6`, we reload the checkpoint and re‑run inference at
+$r \in {1,2,4,6,8,12,24}` to measure sensitivity.
 
 ## Training Configuration
 
-- Dataset: Hugging Face `nampdn-ai/tiny-strange-textbooks` [@nam_pham_2024] (16GB of raw text), streamed line-by-line.
-- Sequence length: 64 tokens produced with a sliding, left-padded window.
-- Optimizer: AdamW, learning-rate $1 \times 10^{-3}$, batch 32.
-- Epochs: default 3 (override with -e flag); one checkpoint per epoch in `./checkpoints/`.
+* **Dataset**: Hugging Face `nampdn-ai/tiny-strange-textbooks` (streaming).  
+* **Sequence length**: 128 tokens, sliding left‑padded window.  
+* **Batch size**: 32 during training, 4 in the DataLoader defaults.  
+* **Optimizer**: AdamW, LR $1\times10^{-3}$.  
+* **Epochs**: 3 (default), checkpoint saved each epoch.
 
 ## Evaluation Pipeline
 
-- `main.py train`: launches training and saves checkpoints.
-- `main.py manual`: interactive generation from a custom prompt.
-- `main.py evaluate`: computes loss at each recurrence depth and writes CSV + plot to
-  `./evaluation/`.
-- `random_utils.py`: helper for plotting training-loss and recurrence-loss.
-
-Example commands:
+* `main.py train`: start training / resume from checkpoint.  
+* `main.py evaluate`: compute loss at chosen depths, save CSV + plot.  
+* `random_utils.py`: generate `training_loss_plot.png` and `recurrence_plot.png`.
 
 ```bash
-# fresh training run (3 epochs, batch 32)
+# fresh 3‑epoch run
 python src/main.py train -e 3 -b 32
 
-# interactive generation using the latest checkpoint
-python src/main.py manual
-
-# sweep loss over recurrence depths
+# sweep recurrence depths
 python src/main.py evaluate -r 1 2 4 6 8 12 24
-```
 
+```
 # Results
 
 ## Training Dynamics
