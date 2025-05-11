@@ -1,22 +1,8 @@
-import torch
-from model import ModularTextModel
-from transformers.models.auto.tokenization_auto import AutoTokenizer
 import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
-
-
-def count_params(checkpoint_path):
-    device = torch.device("cpu")
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    vocab_size = tokenizer.vocab_size
-    model = ModularTextModel(vocab_size=vocab_size)
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(checkpoint["model_state"])
-    total_params = sum(p.numel() for p in model.parameters())
-    print(f"Total model parameters: {total_params}")
 
 
 def plot_recurrence_evaluation(csv_path, output_dir="evaluation"):
@@ -39,7 +25,7 @@ def plot_recurrence_evaluation(csv_path, output_dir="evaluation"):
 
     # Create the plot with gradient color
     ax = plt.subplot(111)
-    cmap = plt.cm.viridis
+    cmap = plt.cm.viridis  # type: ignore
     colors = cmap(df["Epoch"] / df["Epoch"].max())
 
     # Plot main line and scatter points
@@ -102,8 +88,8 @@ def plot_recurrence_evaluation(csv_path, output_dir="evaluation"):
 
     # Find the minimum loss point
     min_idx = df["Recurrence_Loss"].idxmin()
-    min_epoch = df["Epoch"].iloc[min_idx]
-    min_loss = df["Recurrence_Loss"].iloc[min_idx]
+    min_epoch = df["Epoch"].iloc[min_idx]  # type: ignore
+    min_loss = df["Recurrence_Loss"].iloc[min_idx]  # type: ignore
 
     # Mark the minimum loss point
     plt.annotate(
@@ -187,9 +173,7 @@ if __name__ == "__main__":
 
     command = sys.argv[1]
 
-    if command == "count_params" and len(sys.argv) >= 3:
-        count_params(sys.argv[2])
-    elif command == "plot_recurrence" and len(sys.argv) >= 3:
+    if command == "plot_recurrence" and len(sys.argv) >= 3:
         csv_path = sys.argv[2]
         output_dir = sys.argv[3] if len(sys.argv) >= 4 else "evaluation"
         plot_recurrence_evaluation(csv_path, output_dir)

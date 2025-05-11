@@ -1,7 +1,7 @@
 import argparse
 import datetime
 from train import train
-from test import manual_test, evaluate_recurrence_levels
+from test import evaluate_recurrence_levels
 import os
 import glob
 
@@ -38,16 +38,6 @@ if __name__ == "__main__":
         type=int,
         default=32,
         help="Batch size for training",
-    )
-
-    # Manual test subcommand
-    manual_parser = subparsers.add_parser("manual", help="Run manual test")
-    manual_parser.add_argument(
-        "-c",
-        "--checkpoint",
-        type=str,
-        default=get_latest_checkpoint(),
-        help="Path to the checkpoint file (default: latest checkpoint in ./checkpoints)",
     )
 
     # Evaluate recurrence levels subcommand
@@ -97,8 +87,6 @@ if __name__ == "__main__":
         train(
             checkpoint=args.checkpoint, epochs=args.epochs, batch_size=args.batch_size
         )
-    elif args.mode == "manual":
-        manual_test(checkpoint=args.checkpoint)
     elif args.mode == "evaluate":
         evaluate_recurrence_levels(
             checkpoint=args.checkpoint,

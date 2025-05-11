@@ -1,83 +1,49 @@
-import torch
 import csv
 import os
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+import torch
 from tqdm import tqdm
-from transformers.models.auto.tokenization_auto import AutoTokenizer
-from model import ModularTextModel
+
 from data import get_dataloader
+from model import RecurrentTransformerModel
 
 
-def manual_test(checkpoint=None, seq_len=64):
-    # Set device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"[DEBUG] Using device: {device}")
+def generate_text_simple(model, idx, max_new_tokens, context_size):
+    # idx is (B, T) array of indices in the current context
+    for _ in range(max_new_tokens):
+        # Crop current context if it exceeds the supported context size
+        idx_cond = idx[:, -context_size:]
 
-    input_text = input("Enter text to test the model: ")
-    print(f"[DEBUG] User input: {input_text}")
+        # Get the predictions
+        with torch.no_grad():
+            logits = model(idx_cond)
 
-    # Load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    vocab_size = tokenizer.vocab_size
-    print(f"[DEBUG] Tokenizer loaded. Vocab size: {vocab_size}")
+        # Focus only on the last time step
+        logits = logits[:, -1, :]
 
-    # Tokenize input
-    tokens = tokenizer.encode(input_text, add_special_tokens=True)
-    print(f"[DEBUG] Tokenized input: {tokens}")
-    # Pad input to seq_len
-    if len(tokens) < seq_len:
-        tokens = tokens + [tokenizer.pad_token_id] * (seq_len - len(tokens))
-    else:
-        tokens = tokens[:seq_len]
-    x = torch.tensor(tokens).unsqueeze(0).to(device)  # [1, seq_len]
-    print(f"[DEBUG] Input tensor shape: {x.shape}")
+        # Get the idx of the vocab entry with the highest logits value
+        idx_next = torch.argmax(logits, dim=-1, keepdim=True)  # (batch, 1)
 
-    # Model
-    model = ModularTextModel(vocab_size=vocab_size).to(device)
-    print("[DEBUG] Model instantiated")
-    if checkpoint is not None:
-        print(f"[DEBUG] Loading checkpoint: {checkpoint}")
-        checkpoint_data = torch.load(checkpoint, map_location=device)
-        model.load_state_dict(checkpoint_data["model_state"])
-        print(f"Loaded checkpoint from {checkpoint}")
+        # Append sampled index to the running sequence
+        idx = torch.cat((idx, idx_next), dim=1)  # (batch, n_tokens+1)
 
+    return idx
+
+
+def generate_and_print_sample(model, tokenizer, device, start_context, seq_len=64):
     model.eval()
+    encoded = tokenizer.encode(
+        start_context, add_special_tokens=True, truncation=True, max_length=seq_len
+    )
+    # Convert to tensor and add batch dimension
+    encoded_tensor = torch.tensor([encoded], device=device)
     with torch.no_grad():
-        generated = x.clone()
-        orig_seq_len = x.shape[1]
-        max_gen_len = seq_len * 2
-        print(f"[DEBUG] Generating up to {max_gen_len - orig_seq_len} new tokens")
-        for _ in range(orig_seq_len, max_gen_len):
-            if generated.shape[1] < seq_len:
-                input_seq = torch.cat(
-                    [
-                        generated,
-                        torch.full(
-                            (1, seq_len - generated.shape[1]),
-                            tokenizer.pad_token_id,
-                            device=device,
-                            dtype=generated.dtype,
-                        ),
-                    ],
-                    dim=1,
-                )
-            else:
-                input_seq = generated[:, -seq_len:]
-            logits = model(input_seq)  # [batch, vocab]
-            next_token_logits = logits[0]  # [vocab]
-
-            probs = torch.softmax(next_token_logits, dim=-1)
-            next_token_id = torch.multinomial(probs, num_samples=1)
-            if (
-                next_token_id.item() == tokenizer.sep_token_id
-                or next_token_id.item() == tokenizer.eos_token_id
-            ):
-                break
-            generated = torch.cat([generated, next_token_id.unsqueeze(0)], dim=1)
-
-        predicted_ids = generated[0].cpu().numpy().tolist()
-        output_text = tokenizer.decode(predicted_ids, skip_special_tokens=True)
-        print(output_text)
+        token_ids = generate_text_simple(
+            model=model, idx=encoded_tensor, max_new_tokens=50, context_size=seq_len
+        )
+    decoded_text = tokenizer.decode(token_ids[0], skip_special_tokens=True)
+    print(decoded_text.replace("\n", " "))
+    model.train()
 
 
 def evaluate_recurrence_levels(
@@ -104,9 +70,7 @@ def evaluate_recurrence_levels(
     print(f"Using device: {device}")
 
     # Load data
-    loader, tokenizer = get_dataloader(
-        batch_size=batch_size, device=str(device), streaming=True
-    )
+    loader, tokenizer = get_dataloader(batch_size=batch_size, num_workers=4)
     vocab_size = tokenizer.vocab_size
 
     # Load base model from checkpoint
@@ -127,7 +91,7 @@ def evaluate_recurrence_levels(
             print(f"Evaluating model with recurrence level {recurrence}")
 
             # Create model with current recurrence level
-            model = ModularTextModel(
+            model = RecurrentTransformerModel(
                 vocab_size=vocab_size, num_recurrences=recurrence
             ).to(device)
 
@@ -139,7 +103,7 @@ def evaluate_recurrence_levels(
             model.eval()
 
             # Set recurrence level
-            model.recurrent.num_recurrences = recurrence
+            model.num_recurrences = recurrence
 
             # Calculate loss on samples
             criterion = torch.nn.CrossEntropyLoss()
@@ -152,20 +116,27 @@ def evaluate_recurrence_levels(
 
                 while samples_processed < num_samples:
                     try:
-                        x, y = next(data_iter)
+                        inputs, targets = next(data_iter)
                     except StopIteration:
                         data_iter = iter(loader)
-                        x, y = next(data_iter)
+                        inputs, targets = next(data_iter)
 
-                    x = x.to(torch.long).to(device)
-                    y = y.to(torch.long).to(device)
+                    inputs = inputs.to(torch.long).to(device)
+                    targets = targets.to(torch.long).to(device)
 
                     # Forward pass
-                    out = model(x)
-                    loss = criterion(out, y)
+                    logits = model(inputs)  # [batch, seq_len, vocab]
+
+                    # Reshape for loss calculation
+                    batch_size, seq_len = targets.size()
+                    logits_flat = logits.view(-1, vocab_size)
+                    targets_flat = targets.view(-1)
+
+                    # Calculate loss
+                    loss = criterion(logits_flat, targets_flat)
 
                     # Update statistics
-                    batch_samples = x.size(0)
+                    batch_samples = inputs.size(0)
                     samples_to_add = min(batch_samples, num_samples - samples_processed)
                     total_loss += loss.item() * samples_to_add
                     samples_processed += samples_to_add
